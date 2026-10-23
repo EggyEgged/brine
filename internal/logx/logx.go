@@ -3,6 +3,7 @@
 package logx
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -37,29 +38,75 @@ func Redact(s string) string {
 	return s
 }
 
-// File opens (appending) a log file named name in the state directory.
+// MaxLogSize is the size above which a log is rotated (once, keeping one
+// previous generation as name.1) when it is opened.
+const MaxLogSize = 5 << 20
+
+// File opens (appending) a log file named name in the state directory,
+// rotating it first if it has grown past MaxLogSize.
 func File(name string) (*os.File, error) {
 	if err := os.MkdirAll(dirs.Logs(), 0o755); err != nil {
 		return nil, err
 	}
-	return os.OpenFile(filepath.Join(dirs.Logs(), name), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	path := filepath.Join(dirs.Logs(), name)
+	rotate(path, MaxLogSize)
+	return os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 }
 
-// RedactWriter redacts each Write before passing it on. Writes are assumed
-// to be whole lines or at least not to split a secret, which holds for the
-// line-oriented logs Brine produces.
+func rotate(path string, max int64) {
+	if st, err := os.Stat(path); err == nil && st.Size() > max {
+		os.Rename(path, path+".1")
+	}
+}
+
+// maxPending bounds how much of an unterminated line RedactWriter holds.
+const maxPending = 64 << 10
+
+// RedactWriter redacts what is written to it before passing it on. It works
+// on whole lines, buffering a partial line until its newline arrives, so a
+// token split across two Writes is still caught. Call Flush when done to
+// emit a final unterminated line.
 type RedactWriter struct {
-	mu sync.Mutex
-	W  io.Writer
+	mu  sync.Mutex
+	W   io.Writer
+	buf []byte
 }
 
 func (r *RedactWriter) Write(p []byte) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if _, err := io.WriteString(r.W, Redact(string(p))); err != nil {
-		return 0, err
+	r.buf = append(r.buf, p...)
+	for {
+		i := bytes.IndexByte(r.buf, '\n')
+		if i < 0 {
+			break
+		}
+		line := r.buf[:i+1]
+		if _, err := io.WriteString(r.W, Redact(string(line))); err != nil {
+			return 0, err
+		}
+		r.buf = r.buf[i+1:]
+	}
+	if len(r.buf) > maxPending {
+		// A line this long is not text we understand; redact it in one piece.
+		if _, err := io.WriteString(r.W, Redact(string(r.buf))+"\n"); err != nil {
+			return 0, err
+		}
+		r.buf = nil
 	}
 	return len(p), nil
+}
+
+// Flush writes any buffered partial line.
+func (r *RedactWriter) Flush() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if len(r.buf) == 0 {
+		return nil
+	}
+	_, err := io.WriteString(r.W, Redact(string(r.buf))+"\n")
+	r.buf = nil
+	return err
 }
 
 // Logger is Brine's process-wide logger. It writes to stderr until Setup is called.
@@ -78,7 +125,7 @@ func Setup(name string, verbose bool) (io.Writer, func()) {
 	}
 	rw := &RedactWriter{W: w}
 	Logger = log.New(rw, "", log.LstdFlags)
-	return rw, func() { f.Close() }
+	return rw, func() { rw.Flush(); f.Close() }
 }
 
 func Printf(format string, args ...any) { Logger.Output(2, fmt.Sprintf(format, args...)) }

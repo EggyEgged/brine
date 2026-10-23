@@ -19,8 +19,11 @@ import (
 
 // State records which Studio builds are installed and which is active.
 type State struct {
-	Current  string             `json:"current"`
-	Previous string             `json:"previous,omitempty"`
+	Current  string `json:"current"`
+	Previous string `json:"previous,omitempty"`
+	// Pinned stops automatic updates after a rollback until the user
+	// installs or updates explicitly.
+	Pinned   bool               `json:"pinned,omitempty"`
 	Versions map[string]Version `json:"versions"`
 }
 
@@ -68,11 +71,11 @@ func VersionDir(guid string) string { return filepath.Join(dirs.Versions(), guid
 // is not installed.
 func (s *State) CurrentDir() (string, error) {
 	if s.Current == "" {
-		return "", errors.New("Studio is not installed (run `brine install`)")
+		return "", errors.New("no Studio build is installed (run `brine setup`)")
 	}
 	d := VersionDir(s.Current)
 	if !Complete(d) {
-		return "", fmt.Errorf("Studio build %s is incomplete (run `brine install`)", s.Current)
+		return "", fmt.Errorf("the Studio build %s is incomplete (run `brine install --force`)", s.Current)
 	}
 	return d, nil
 }
@@ -106,6 +109,7 @@ func Install(s *State, rel *Release, keep int, log func(string, ...any)) error {
 		s.Current = rel.GUID
 	}
 	s.Versions[rel.GUID] = Version{Version: rel.Version, Installed: time.Now().UTC()}
+	s.Pinned = false
 	if err := s.Save(); err != nil {
 		return err
 	}
@@ -119,6 +123,7 @@ func Rollback(s *State) error {
 		return errors.New("no previous Studio build to roll back to")
 	}
 	s.Current, s.Previous = s.Previous, s.Current
+	s.Pinned = true
 	return s.Save()
 }
 
@@ -195,7 +200,7 @@ func download(rel *Release, dir string, log func(string, ...any)) error {
 				return
 			}
 			archive := filepath.Join(cache, p.MD5+"-"+p.Name)
-			err := netx.Download(rel.url(p.Name), archive, p.MD5, nil)
+			err := netx.Download(rel.url(p.Name), archive, netx.Verify{MD5: p.MD5}, nil)
 			if err == nil {
 				err = extract(archive, tmp, p.Name)
 			}

@@ -144,6 +144,77 @@ func MergeServer(doc []byte, name string, entry any) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
+// RemoveServer deletes mcpServers[name] from a Claude Desktop config
+// document, keeping everything else. removed is false if it wasn't there.
+func RemoveServer(doc []byte, name string) (out []byte, removed bool, err error) {
+	top, err := decodeObject(doc)
+	if err != nil {
+		return nil, false, fmt.Errorf("not a valid JSON object: %w", err)
+	}
+	raw, ok := top.get("mcpServers")
+	if !ok {
+		return doc, false, nil
+	}
+	servers, err := decodeObject(raw)
+	if err != nil {
+		return nil, false, fmt.Errorf("\"mcpServers\" is not an object: %w", err)
+	}
+	if !servers.del(name) {
+		return doc, false, nil
+	}
+	top.set("mcpServers", servers.encode())
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, top.encode(), "", "  "); err != nil {
+		return nil, false, err
+	}
+	buf.WriteByte('\n')
+	return buf.Bytes(), true, nil
+}
+
+// DisconnectClaudeDesktop removes the Brine entry from Claude Desktop's
+// config, with a backup. It reports whether an entry was removed.
+func DisconnectClaudeDesktop(path string) (removed bool, backup string, err error) {
+	old, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return false, "", nil
+	}
+	if err != nil {
+		return false, "", err
+	}
+	out, removed, err := RemoveServer(old, ServerName)
+	if err != nil || !removed {
+		return false, "", err
+	}
+	st, _ := os.Stat(path)
+	backup = fmt.Sprintf("%s.brine-backup-%s", path, time.Now().Format("20060102-150405"))
+	if err := os.WriteFile(backup, old, st.Mode().Perm()); err != nil {
+		return false, "", err
+	}
+	tmp := path + ".brine-tmp"
+	if err := os.WriteFile(tmp, out, st.Mode().Perm()); err != nil {
+		return false, backup, err
+	}
+	return true, backup, os.Rename(tmp, path)
+}
+
+// DisconnectClaudeCode removes the Roblox_Studio server from Claude Code
+// if it is registered. It returns false when `claude` is missing or has no such entry.
+func DisconnectClaudeCode(scope string, out io.Writer) (bool, error) {
+	claude, err := exec.LookPath("claude")
+	if err != nil {
+		return false, nil
+	}
+	if err := exec.Command(claude, "mcp", "get", ServerName).Run(); err != nil {
+		return false, nil
+	}
+	cmd := exec.Command(claude, "mcp", "remove", "--scope", scope, ServerName)
+	cmd.Stdout, cmd.Stderr = out, out
+	if err := cmd.Run(); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 type kv struct {
 	key string
 	val json.RawMessage
@@ -158,6 +229,16 @@ func (o orderedObject) get(k string) (json.RawMessage, bool) {
 		}
 	}
 	return nil, false
+}
+
+func (o *orderedObject) del(k string) bool {
+	for i, e := range *o {
+		if e.key == k {
+			*o = append((*o)[:i], (*o)[i+1:]...)
+			return true
+		}
+	}
+	return false
 }
 
 func (o *orderedObject) set(k string, v json.RawMessage) {

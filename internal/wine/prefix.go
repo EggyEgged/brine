@@ -154,17 +154,25 @@ func (p *Prefix) Wait(timeout time.Duration) error {
 	}
 }
 
-// Kill stops every process in the prefix and its wineserver.
+// Kill stops every process in the prefix and its wineserver. It asks
+// politely with `wineserver -k`; anything still alive after a grace period
+// is killed outright.
 func (p *Prefix) Kill() error {
-	if !p.ServerRunning() {
+	if !p.ServerRunning() && len(p.Processes("")) == 0 {
 		return nil
 	}
-	if err := p.Server("-k").Run(); err != nil {
-		return err
+	if p.ServerRunning() {
+		_ = p.Server("-k").Run()
 	}
 	deadline := time.Now().Add(10 * time.Second)
-	for p.ServerRunning() && time.Now().Before(deadline) {
+	for time.Now().Before(deadline) && (p.ServerRunning() || len(p.Processes("")) > 0) {
 		time.Sleep(200 * time.Millisecond)
+	}
+	if left := p.Processes(""); len(left) > 0 {
+		for _, pr := range left {
+			syscall.Kill(pr.PID, syscall.SIGKILL)
+		}
+		time.Sleep(500 * time.Millisecond)
 	}
 	if p.ServerRunning() {
 		return fmt.Errorf("wineserver for %s did not exit", p.Dir)
@@ -185,18 +193,21 @@ func (p *Prefix) ServerSocketDir() (string, error) {
 		fmt.Sprintf("server-%x-%x", st.Dev, st.Ino)), nil
 }
 
-// ServerRunning reports whether a wineserver is serving this prefix.
+// ServerRunning reports whether a wineserver is serving this prefix. It
+// checks the socket Wine creates and, because that location differs between
+// Wine builds, also looks for a wineserver process with this WINEPREFIX.
 func (p *Prefix) ServerRunning() bool {
+	if len(p.Processes("wineserver")) > 0 || len(p.Processes("wineserver64")) > 0 {
+		return true
+	}
 	dir, err := p.ServerSocketDir()
 	if err != nil {
 		return false
 	}
-	// The socket file outlives a crashed server, but the lock does not.
-	_, err = os.Stat(filepath.Join(dir, "socket"))
-	if err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "socket")); err != nil {
 		return false
 	}
-	return len(p.Processes("")) > 0 || serverLocked(filepath.Join(dir, "lock"))
+	return serverLocked(filepath.Join(dir, "lock"))
 }
 
 func serverLocked(lock string) bool {
@@ -291,15 +302,33 @@ func WinPath(p string) string {
 	return "Z:" + strings.ReplaceAll(abs, "/", `\`)
 }
 
-// UserDir is the prefix's C:\users\<name> directory.
+// UserDir is the prefix's C:\users\<name> directory. Wine names it after
+// the account that created the prefix, which is not always $USER (sudo,
+// su, containers), so look at what is on disk first.
 func (p *Prefix) UserDir() string {
+	users := filepath.Join(p.Dir, "drive_c", "users")
+	ents, _ := os.ReadDir(users)
+	var found []string
+	for _, e := range ents {
+		if e.IsDir() && !strings.EqualFold(e.Name(), "Public") {
+			found = append(found, e.Name())
+		}
+	}
+	if len(found) == 1 {
+		return filepath.Join(users, found[0])
+	}
 	name := os.Getenv("USER")
-	if name == "" {
-		if u, err := user.Current(); err == nil {
+	if u, err := user.Current(); err == nil && u.Username != "" {
+		for _, f := range found {
+			if f == u.Username {
+				name = f
+			}
+		}
+		if name == "" {
 			name = u.Username
 		}
 	}
-	return filepath.Join(p.Dir, "drive_c", "users", name)
+	return filepath.Join(users, name)
 }
 
 // LocalAppData is %LOCALAPPDATA% inside the prefix.

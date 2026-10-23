@@ -18,6 +18,16 @@ them, and `brine mcp` keeps the connection clean and robust.
 Brine is an independent project and is not affiliated with Roblox Corporation.
 "Roblox" and "Roblox Studio" are trademarks of Roblox Corporation.
 
+## Requirements
+
+* A 64-bit Linux desktop session (X11 or Wayland) with a Vulkan driver for the best graphics
+  (OpenGL fallbacks exist), and `tar` + `xz` (used to unpack the managed Wine build).
+* Wine is optional. Brine uses your system Wine (9 or newer is best), or downloads a Studio-tuned
+  build for you. Roblox Studio itself is downloaded from Roblox during setup (about 570 MB).
+* About 3 GB of disk space (Studio, the Wine prefix, WebView2, DXVK), plus the same again briefly while
+  updating, since the previous Studio build is kept for `brine rollback`.
+* For MCP: Claude Code (`claude`) and/or Claude Desktop.
+
 ## Install
 
 From a release tarball, as your normal user:
@@ -25,8 +35,10 @@ From a release tarball, as your normal user:
 ```sh
 tar xf brine-*-linux-amd64.tar.gz
 cd brine-*-linux-amd64
-./install.sh            # installs ~/.local/bin/brine and the desktop entry
+./install.sh            # installs ~/.local/bin/brine, the man page, shell completions and the desktop entry
 ```
+
+Verify the download first with `sha256sum -c brine-*.tar.gz.sha256`.
 
 From source (Go 1.23+):
 
@@ -34,7 +46,8 @@ From source (Go 1.23+):
 make install            # same as above, from build/brine
 ```
 
-Distribution packages: `packaging/aur/PKGBUILD` (Arch) and `make deb` (Debian/Ubuntu).
+Distribution packages: `packaging/aur/PKGBUILD` (Arch) and `make deb` (Debian/Ubuntu). Both install the man
+page (`man brine`) and bash/zsh/fish completions (also available as `brine completion bash|zsh|fish`).
 
 ## First run
 
@@ -116,13 +129,16 @@ The full investigation is in [docs/mcp-under-wine.md](docs/mcp-under-wine.md).
 |---|---|
 | `brine run [FILE\|URI] [-v]` | Start Studio. Opens a place file or a `roblox-studio:` / `roblox-studio-auth:` link. `-v` echoes Wine output |
 | `brine update` | Install the newest Studio build. The previous one is kept |
-| `brine rollback` | Switch back to the previous build and turn off auto-update |
+| `brine rollback` | Switch back to the previous build. Automatic updates stay paused until the next `brine update` |
 | `brine kill` | Stop Studio and the prefix's wineserver |
 | `brine doctor` | Check everything, including a live MCP round trip, and explain fixes |
 | `brine runtime update` | Update the managed Wine build |
 | `brine winecfg`, `brine regedit`, `brine wine PROG` | Wine tools inside Brine's prefix |
 | `brine desktop install\|remove` | Re-register or remove the desktop entry and handlers |
 | `brine config` | Show the effective configuration |
+| `brine mcp disconnect claude-code\|claude-desktop` | Undo `brine mcp connect` |
+| `brine uninstall [--purge]` | Remove desktop integration and MCP registrations. `--purge` also deletes the prefix (and your Studio sign-in), builds, logs and caches |
+| `brine completion bash\|zsh\|fish` | Print a shell completion script |
 
 ## Configuration
 
@@ -180,6 +196,25 @@ NVIDIA's proprietary driver, or `DRI_PRIME=1` for Mesa.
 Brine never needs root, never touches system Wine installs, and keeps Roblox
 credentials inside its prefix.
 
+## Privacy and security
+
+Brine has no telemetry. It talks to Roblox's CDN, GitHub (the managed Wine build and DXVK), Microsoft's
+WebView2 update service and nothing else. Downloads are checked against published checksums, your Roblox
+sign-in never leaves the Wine prefix, and logs have cookies, tokens and sign-in codes redacted. There is no
+sandbox: Studio runs with your user's permissions, so only open places you trust. See [SECURITY.md](SECURITY.md).
+
+## Known limitations
+
+* x86-64 only (Studio is 64-bit x86; there is no ARM build).
+* Studio runs through Wine, so it is as stable as Wine is with your drivers. Roblox's own update cadence
+  can break things; use `brine rollback`.
+* Brine runs Studio only, not the Roblox game client. Local playtests from Studio (Play / Run) work,
+  including the `Client` and `Server` datamodels through MCP (`start_stop_play`, `execute_luau`).
+* Browser sign-in depends on your desktop environment passing `roblox-studio-auth:` links to Brine
+  (`brine doctor` checks the registration). Signing in inside Studio's own window needs WebView2.
+* Clients other than Claude Code and Claude Desktop can use `brine mcp` as a plain stdio MCP server;
+  `brine mcp --print-config` shows the command to give them.
+
 ## Troubleshooting
 
 Start with `brine doctor`. It prints a fix for every failed check.
@@ -202,6 +237,11 @@ Start with `brine doctor`. It prints a fix for every failed check.
 * **Black or flickering viewport.** Try `renderer = "vulkan"` or
   `renderer = "d3d11"`. On hybrid laptops try `gpu = "integrated"`.
 * **An update broke Studio.** Run `brine rollback`.
+* **"another brine command is changing the installation".** `setup`, `install`, `update` and `rollback`
+  take a lock so two of them can't corrupt the install. Wait for the other one, or close it.
+* **A menu launch does nothing.** Errors are shown as a desktop notification (needs `notify-send`) and are
+  also in `~/.local/state/brine/brine.log`. Run `brine run -v` in a terminal to see Wine's output.
+* **"no graphical session".** `brine run` needs `DISPLAY` or `WAYLAND_DISPLAY`; run it inside your desktop session.
 * **Start from scratch.** `brine kill`, then delete `~/.local/share/brine/prefix`, then `brine setup`.
   This signs you out.
 * **Leftover Vinegar entry.** If `claude mcp list` still shows an old
@@ -215,6 +255,8 @@ make build          # build/brine
 make test           # unit tests (stdout filter, config merge, bridge behaviour, ...)
 make integration    # scripts/integration-test.sh: real Studio + MCP round trip
 make restart-test   # scripts/restart-test.py: one MCP session survives `brine kill` + a Studio restart
+make multi-test     # scripts/multi-client-test.py: several MCP clients at once, one exits, one joins late
+make check          # gofmt + go vet + go test -race (what CI runs)
 make dist           # release tarball in dist/
 make deb            # .deb in dist/
 ```

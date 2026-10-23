@@ -1,6 +1,8 @@
 package logx
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -22,5 +24,44 @@ func TestRedact(t *testing.T) {
 	}
 	if Redact("plain log line") != "plain log line" {
 		t.Fatal("changed a harmless line")
+	}
+}
+
+func TestRotate(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "a.log")
+	os.WriteFile(p, make([]byte, 100), 0o600)
+	rotate(p, 1000)
+	if _, err := os.Stat(p + ".1"); err == nil {
+		t.Fatal("rotated a small file")
+	}
+	rotate(p, 50)
+	if _, err := os.Stat(p + ".1"); err != nil {
+		t.Fatal("did not rotate a big file")
+	}
+	if _, err := os.Stat(p); err == nil {
+		t.Fatal("original still present")
+	}
+}
+
+func TestRedactWriterSplitSecret(t *testing.T) {
+	var out strings.Builder
+	w := &RedactWriter{W: &out}
+	// A cookie and an auth URI, each cut in the middle across writes.
+	chunks := []string{"start _|WARNING:-DO-NOT-SHARE-TH", "IS.--secret-part-ABC|_XYZ789 more\nrun roblox-studio-au", "th:/?code=SECRETCODE&state=s\ntail without newline code=LASTSECRET"}
+	for _, c := range chunks {
+		if n, err := w.Write([]byte(c)); err != nil || n != len(c) {
+			t.Fatal(n, err)
+		}
+	}
+	w.Flush()
+	got := out.String()
+	for _, s := range []string{"secret-part", "XYZ789", "SECRETCODE", "LASTSECRET"} {
+		if strings.Contains(got, s) {
+			t.Errorf("leaked %q in %q", s, got)
+		}
+	}
+	if !strings.Contains(got, "more") || !strings.Contains(got, "tail without newline") {
+		t.Errorf("harmless text lost: %q", got)
 	}
 }

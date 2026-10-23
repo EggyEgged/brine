@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"brine/internal/netx"
 )
@@ -23,9 +24,13 @@ type Release struct {
 }
 
 // Latest asks Roblox which Studio build is current.
-func Latest() (*Release, error) {
+func Latest() (*Release, error) { return LatestWithin(netx.APITimeout) }
+
+// LatestWithin is Latest with a custom deadline, for checks that must not
+// delay starting Studio.
+func LatestWithin(d time.Duration) (*Release, error) {
 	var r Release
-	if err := netx.GetJSON(clientVersionURL, &r); err != nil {
+	if err := netx.GetJSONTimeout(clientVersionURL, d, &r); err != nil {
 		return nil, fmt.Errorf("query current Studio version: %w", err)
 	}
 	if !strings.HasPrefix(r.GUID, "version-") {

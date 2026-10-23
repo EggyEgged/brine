@@ -1,0 +1,29 @@
+name: CI
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: gofmt, vet, tests
+        run: make check
+      - name: Build release artifacts
+        run: make dist deb VERSION=0.0.0-ci
+      - name: Shell scripts parse
+        run: |
+          sh -n packaging/install.sh packaging/install-extras.sh packaging/deb/build-deb.sh scripts/integration-test.sh
+          bash -n packaging/aur/PKGBUILD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/

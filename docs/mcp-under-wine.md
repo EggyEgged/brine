@@ -216,3 +216,10 @@ Run on the same machine, with Studio 0.744.0.7441077:
   answered 6 s later.
 * `roblox-studio-auth:` links reach Studio's own handler (it parses the URI and validates `state`).
   A real sign-in needs credentials and was not exercised.
+* Local playtesting under Wine works: `start_stop_play` switched Studio to Play mode,
+  `get_studio_state` then listed the `Client` and `Server` datamodels, `execute_luau` with
+  `datamodel_type: "Server"` ran on the server, and the `Edit` datamodel correctly refused calls while playing.
+* Several MCP clients at once work (`scripts/multi-client-test.py`): each `brine mcp` starts its own
+  helper; the first hosts port 13469 and the others join it. Concurrent calls from two clients did not
+  cross. When the host's client exits, another helper takes the port and Studio reconnects within
+  about 5 s (Studio retries every 3 s).

@@ -1,10 +1,7 @@
 package wine
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -74,14 +71,11 @@ func InstallManaged(log func(string, ...any)) (string, error) {
 
 	archive := filepath.Join(dirs.Cache, name)
 	log("Downloading Wine build %s", dirName)
-	if err := netx.Download(url, archive, "", netx.Bar("wine")); err != nil {
-		return "", err
+	if digest == "" {
+		log("warning: GitHub published no checksum for %s; it can't be verified", name)
 	}
-	if want, ok := strings.CutPrefix(digest, "sha256:"); ok {
-		if got, err := sha256File(archive); err != nil || got != want {
-			os.Remove(archive)
-			return "", fmt.Errorf("%s: sha256 mismatch", name)
-		}
+	if err := netx.Download(url, archive, netx.Verify{SHA256: digest}, netx.Bar("wine")); err != nil {
+		return "", err
 	}
 
 	tmp, err := os.MkdirTemp(dirs.Runtimes(), ".extract-")
@@ -90,7 +84,7 @@ func InstallManaged(log func(string, ...any)) (string, error) {
 	}
 	defer os.RemoveAll(tmp)
 	log("Extracting %s", name)
-	if out, err := exec.Command("tar", "-xJf", archive, "-C", tmp).CombinedOutput(); err != nil {
+	if out, err := exec.Command("tar", "-xJf", archive, "-C", tmp, "--no-same-owner").CombinedOutput(); err != nil {
 		return "", fmt.Errorf("extract: %w: %s", err, out)
 	}
 	// The archive holds one top-level directory.
@@ -120,17 +114,4 @@ func InstallManaged(log func(string, ...any)) (string, error) {
 	}
 	os.Remove(archive)
 	return dirName, nil
-}
-
-func sha256File(p string) (string, error) {
-	f, err := os.Open(p)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(h.Sum(nil)), nil
 }

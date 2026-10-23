@@ -1,0 +1,16 @@
+post_install() {
+  command -v update-mime-database >/dev/null && update-mime-database usr/share/mime
+  command -v update-desktop-database >/dev/null && update-desktop-database -q usr/share/applications
+  command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q -t usr/share/icons/hicolor
+  echo "Run 'brine setup' as your normal user to install Studio."
+  return 0
+}
+
+post_upgrade() { post_install; }
+
+post_remove() {
+  command -v update-mime-database >/dev/null && update-mime-database usr/share/mime
+  command -v update-desktop-database >/dev/null && update-desktop-database -q usr/share/applications
+  echo "Your Wine prefix and Studio builds in ~/.local/share/brine were kept; 'brine uninstall --purge' (run before removing the package) deletes them."
+  return 0
+}

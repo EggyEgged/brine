@@ -66,21 +66,24 @@ func Latest() (string, error) {
 // runtimeURL finds the standalone WebView2 runtime installer for version.
 // The file list mixes full Edge installers (MicrosoftEdge_X64_<v>_<edge>.exe)
 // with the runtime (MicrosoftEdge_X64_<v>.exe).
-func runtimeURL(version string) (string, error) {
+func runtimeURL(version string) (url, sha256 string, err error) {
 	var files []struct {
-		URL  string `json:"Url"`
-		File string `json:"FileId"`
+		URL    string `json:"Url"`
+		File   string `json:"FileId"`
+		Hashes struct {
+			SHA256 string `json:"Sha256"`
+		} `json:"Hashes"`
 	}
 	if err := post(api+version+"/files?action=GenerateDownloadInfo", "", &files); err != nil {
-		return "", err
+		return "", "", err
 	}
 	want := "MicrosoftEdge_X64_" + version + ".exe"
 	for _, f := range files {
 		if f.File == want {
-			return f.URL, nil
+			return f.URL, f.Hashes.SHA256, nil
 		}
 	}
-	return "", fmt.Errorf("WebView2 %s runtime not found", version)
+	return "", "", fmt.Errorf("WebView2 %s runtime not found", version)
 }
 
 // Dir is where the runtime lands inside the prefix.
@@ -116,15 +119,16 @@ func Install(pfx *wine.Prefix, version string) error {
 	if Installed(pfx.Dir, version) {
 		return nil
 	}
-	url, err := runtimeURL(version)
+	url, sum, err := runtimeURL(version)
 	if err != nil {
 		return err
 	}
+	if netx.NormalizeSHA256(sum) == "" {
+		return fmt.Errorf("WebView2 %s: the update service gave no usable checksum; refusing to run an unverified installer", version)
+	}
 	inst := filepath.Join(dirs.Cache, "webview2-"+version+".exe")
-	if _, err := os.Stat(inst); err != nil {
-		if err := netx.Download(url, inst, "", netx.Bar("webview2")); err != nil {
-			return err
-		}
+	if err := netx.Download(url, inst, netx.Verify{SHA256: sum}, netx.Bar("webview2")); err != nil {
+		return err
 	}
 	// WebView2's renderer misbehaves when it sees a modern Windows version
 	// under Wine; reporting Windows 7 to it alone is the usual workaround.

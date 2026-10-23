@@ -34,7 +34,7 @@ func Install(prefix, version string) error {
 	}
 	url := fmt.Sprintf("https://github.com/doitsujin/dxvk/releases/download/v%s/dxvk-%s.tar.gz", version, version)
 	archive := filepath.Join(dirs.Cache, "dxvk-"+version+".tar.gz")
-	if err := netx.Download(url, archive, "", netx.Bar("dxvk")); err != nil {
+	if err := netx.Download(url, archive, netx.Verify{SHA256: releaseDigest(version)}, netx.Bar("dxvk")); err != nil {
 		return err
 	}
 	f, err := os.Open(archive)
@@ -76,6 +76,27 @@ func Install(prefix, version string) error {
 		return fmt.Errorf("no x64 DLLs in %s", filepath.Base(archive))
 	}
 	return os.WriteFile(marker(prefix), []byte(version+"\n"), 0o644)
+}
+
+// releaseDigest asks GitHub for the SHA-256 of the release tarball. If the
+// lookup fails (rate limit, offline mirror) the download proceeds unverified
+// and the caller sees a warning on stderr.
+func releaseDigest(version string) string {
+	var r struct {
+		Assets []struct {
+			Name   string `json:"name"`
+			Digest string `json:"digest"`
+		} `json:"assets"`
+	}
+	if err := netx.GetJSON("https://api.github.com/repos/doitsujin/dxvk/releases/tags/v"+version, &r); err == nil {
+		for _, a := range r.Assets {
+			if a.Name == "dxvk-"+version+".tar.gz" && netx.NormalizeSHA256(a.Digest) != "" {
+				return a.Digest
+			}
+		}
+	}
+	fmt.Fprintf(os.Stderr, "warning: could not look up a checksum for DXVK %s; installing unverified\n", version)
+	return ""
 }
 
 // Overrides returns WINEDLLOVERRIDES entries: native DXVK when enabled,

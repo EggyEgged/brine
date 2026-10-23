@@ -136,3 +136,46 @@ func TestConnectClaudeDesktopBacksUp(t *testing.T) {
 		t.Fatal("invalid file was modified")
 	}
 }
+
+func TestRemoveServer(t *testing.T) {
+	in := `{"theme":"dark","mcpServers":{"a":{"command":"a"},"Roblox_Studio":{"command":"b"},"z":{"command":"z"}}}`
+	out, removed, err := RemoveServer([]byte(in), ServerName)
+	if err != nil || !removed {
+		t.Fatal(removed, err)
+	}
+	m := decode(t, out)
+	s := m["mcpServers"].(map[string]any)
+	if len(s) != 2 || s["a"] == nil || s["z"] == nil || m["theme"] != "dark" {
+		t.Fatalf("bad result: %s", out)
+	}
+	// Absent entry or section: unchanged, not an error.
+	for _, doc := range []string{`{}`, `{"mcpServers":{"a":{}}}`} {
+		out, removed, err := RemoveServer([]byte(doc), ServerName)
+		if err != nil || removed || string(out) != doc {
+			t.Errorf("RemoveServer(%s) = %q %v %v", doc, out, removed, err)
+		}
+	}
+	if _, _, err := RemoveServer([]byte(`{"mcpServers": [`), ServerName); err == nil {
+		t.Fatal("invalid JSON accepted")
+	}
+}
+
+func TestDisconnectClaudeDesktop(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/c.json"
+	if ok, _, err := DisconnectClaudeDesktop(path); ok || err != nil {
+		t.Fatalf("missing file: %v %v", ok, err)
+	}
+	writeFile(path, `{"mcpServers":{"Roblox_Studio":{"command":"x"},"keep":{"command":"k"}}}`)
+	ok, backup, err := DisconnectClaudeDesktop(path)
+	if err != nil || !ok || backup == "" {
+		t.Fatal(ok, backup, err)
+	}
+	b, _ := readFile(path)
+	if strings.Contains(b, "Roblox_Studio") || !strings.Contains(b, "keep") {
+		t.Fatalf("bad result: %s", b)
+	}
+	if orig, _ := readFile(backup); !strings.Contains(orig, "Roblox_Studio") {
+		t.Fatal("backup lost the original")
+	}
+}

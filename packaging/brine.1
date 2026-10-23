@@ -1,0 +1,140 @@
+.TH BRINE 1 "2026-10-23" "brine" "User Commands"
+.SH NAME
+brine \- run Roblox Studio on Linux under Wine, with MCP support
+.SH SYNOPSIS
+.B brine
+.I command
+.RI [ options ]
+.SH DESCRIPTION
+.B brine
+installs, updates and runs Roblox Studio under Wine directly on the host, as
+the invoking user, without Flatpak or any other sandbox. Studio's built-in MCP
+server is exposed to Linux MCP clients such as Claude Code and Claude Desktop
+through
+.BR "brine mcp" .
+.PP
+brine never needs root and refuses to run as root. It is not affiliated with
+Roblox Corporation.
+.SH COMMANDS
+.TP
+.B setup \fR[\fB\-\-runtime\fR \fIauto|system|managed|PATH\fR] [\fB\-\-yes\fR]
+First-run wizard: choose a Wine runtime, create the prefix, install Studio,
+WebView2 and DXVK, and install desktop entries and URI handlers. Safe to run
+again to repair an installation.
+.TP
+.B install \fR[\fB\-\-force\fR]
+Install the current Studio build.
+.TP
+.B update
+Install a newer Studio build, keeping the previous one.
+.TP
+.B rollback
+Switch back to the previous Studio build and pause automatic updates until the
+next explicit
+.B install
+or
+.BR update .
+.TP
+.B run \fR[\fIFILE\fR|\fIURI\fR] [\fB\-v\fR]
+Start Studio. A
+.I .rbxl
+or
+.I .rbxlx
+file is opened as a place;
+.I roblox-studio:
+and
+.I roblox-studio-auth:
+URIs are passed to Studio (this is how browser sign-in completes).
+.B \-v
+copies Wine's output to the terminal.
+.TP
+.B kill
+Stop Studio and the prefix's wineserver.
+.TP
+.B mcp
+Run the stdio MCP server that MCP clients launch. See
+.BR "MCP INTEGRATION" .
+.TP
+.B mcp connect claude\-code \fR[\fB\-\-scope\fR \fIuser|local|project\fR]
+Register brine with Claude Code (\fBclaude mcp add\fR).
+.TP
+.B mcp connect claude\-desktop
+Merge brine into \fI~/.config/Claude/claude_desktop_config.json\fR, keeping a
+backup and every other server. Invalid JSON is never overwritten.
+.TP
+.B mcp disconnect claude\-code|claude\-desktop
+Undo the above.
+.TP
+.B mcp enable
+Turn on Studio's "Enable Studio as MCP server" setting while Studio is closed.
+.TP
+.B mcp test \fR[\fB\-\-luau\fR \fICODE\fR] [\fB\-\-wait\fR \fIDURATION\fR]
+Round-trip
+.B list_roblox_studios
+and optionally
+.BR execute_luau .
+.TP
+.B mcp \-\-print\-config
+Print configuration for manual client setup.
+.TP
+.B doctor \fR[\fB\-\-quick\fR]
+Check Wine, Vulkan, the prefix, Studio, WebView2, desktop integration, the MCP
+setting and a full MCP round trip, and print a fix for each problem.
+.TP
+.B runtime update
+Download or update the managed Wine build.
+.TP
+.B desktop install|remove
+Install or remove the desktop entry, MIME types, icon and URI handlers.
+.TP
+.B winecfg, regedit, wine \fIPROGRAM\fR
+Run Wine tools inside brine's prefix.
+.TP
+.B config
+Show the configuration file location and effective settings.
+.TP
+.B uninstall \fR[\fB\-\-purge\fR] [\fB\-\-yes\fR]
+Remove desktop integration and MCP registrations. With
+.B \-\-purge
+also delete the Wine prefix (which holds the Studio sign-in), Studio builds,
+configuration, logs and caches. The brine program itself is left for the
+package manager.
+.TP
+.B completion bash|zsh|fish
+Print a shell completion script.
+.TP
+.B version
+Print the version.
+.SH MCP INTEGRATION
+Studio ships a helper, StudioMCP.exe, that listens on 127.0.0.1:13469 and
+that Studio connects to. \fBbrine mcp\fR runs it from the active Studio build
+inside brine's prefix, with the same Wine binary, wineserver and environment
+as Studio. It speaks newline-delimited JSON-RPC on stdin/stdout; only valid
+JSON-RPC is ever written to stdout, and everything else goes to the log. When
+Studio is not running, tool calls fail immediately with a clear message
+(unless \fBautostart_studio\fR is set). The helper is restarted if it dies,
+and \fBbrine mcp\fR exits when its standard input closes.
+.SH FILES
+.TP
+.I ~/.config/brine/config.toml
+Configuration (TOML). Sections: [wine], [graphics], [studio], [mcp], [env], [fflags].
+.TP
+.I ~/.local/share/brine/
+prefix/, versions/, runtimes/, state.json.
+.TP
+.I ~/.local/state/brine/
+studio.log, mcp.log, brine.log. Credentials and auth codes are redacted.
+.TP
+.I ~/.cache/brine/
+Downloads.
+.PP
+The XDG_CONFIG_HOME, XDG_DATA_HOME, XDG_STATE_HOME and XDG_CACHE_HOME variables
+are honoured.
+.SH ENVIRONMENT
+Brine sets WINEPREFIX, WINEDEBUG, WINESERVER and WINEDLLOVERRIDES for the
+processes it starts and ignores any values inherited from the caller.
+.SH EXIT STATUS
+0 on success, 1 on failure, 2 on a usage error.
+.SH SEE ALSO
+.BR wine (1),
+.BR claude (1)

@@ -13,7 +13,9 @@ optdepends=(
   'vulkan-icd-loader: DXVK/Vulkan renderers'
   'xdg-utils: registering URI and file handlers'
   'desktop-file-utils: refreshing the desktop entry cache'
+  'libnotify: desktop notifications when a menu launch fails'
 )
+install=brine.install
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
 sha256sums=('SKIP')
 
@@ -21,6 +23,10 @@ build() {
   cd "$pkgname-$pkgver"
   export CGO_ENABLED=0 GOFLAGS='-trimpath -mod=readonly -modcacherw'
   go build -ldflags "-s -w -X main.Version=$pkgver" -o build/brine ./cmd/brine
+  mkdir -p build/completions
+  ./build/brine completion bash > build/completions/brine.bash
+  ./build/brine completion zsh  > build/completions/_brine
+  ./build/brine completion fish > build/completions/brine.fish
 }
 
 check() {
@@ -34,6 +40,11 @@ package() {
   install -Dm644 assets/brine.desktop "$pkgdir/usr/share/applications/brine.desktop"
   install -Dm644 assets/brine.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/brine.svg"
   install -Dm644 assets/brine-studio.xml "$pkgdir/usr/share/mime/packages/brine-studio.xml"
+  install -Dm644 build/completions/brine.bash "$pkgdir/usr/share/bash-completion/completions/brine"
+  install -Dm644 build/completions/_brine "$pkgdir/usr/share/zsh/site-functions/_brine"
+  install -Dm644 build/completions/brine.fish "$pkgdir/usr/share/fish/vendor_completions.d/brine.fish"
+  install -Dm644 packaging/brine.1 "$pkgdir/usr/share/man/man1/brine.1"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+  install -Dm644 CHANGELOG.md "$pkgdir/usr/share/doc/$pkgname/CHANGELOG.md"
 }

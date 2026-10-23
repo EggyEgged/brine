@@ -88,6 +88,12 @@ func Run(a *app.App, rtErr error, w io.Writer, skipRoundTrip bool) (fails int) {
 	}
 
 	// Graphics.
+	if app.HasDisplay() {
+		report(Result{"display", OK, firstNonEmpty(os.Getenv("WAYLAND_DISPLAY"), os.Getenv("DISPLAY")), ""})
+	} else {
+		report(Result{"display", Warn, "no DISPLAY or WAYLAND_DISPLAY in this shell",
+			"Studio needs a graphical session. Run brine from a terminal in your desktop session, or from the app menu."})
+	}
 	cards := gpu.Detect()
 	var names []string
 	for _, c := range cards {
@@ -142,6 +148,10 @@ func Run(a *app.App, rtErr error, w io.Writer, skipRoundTrip bool) (fails int) {
 		}
 		if a.State.Previous != "" {
 			detail += "; rollback: " + a.State.Previous
+		}
+		if a.State.Pinned {
+			st, fix = Warn, "Automatic updates are paused after a rollback. Run `brine update` to resume them."
+			detail += "; updates paused"
 		}
 		report(Result{"studio install", st, detail, fix})
 		for _, exe := range []string{studio.StudioExe, studio.MCPExe} {
@@ -437,4 +447,13 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n] + "…"
+}
+
+func firstNonEmpty(ss ...string) string {
+	for _, s := range ss {
+		if s != "" {
+			return s
+		}
+	}
+	return ""
 }

@@ -4,6 +4,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -151,6 +152,14 @@ func StudioArgs(arg string) ([]string, error) {
 	return nil, fmt.Errorf("%s: Studio opens .rbxl and .rbxlx places", arg)
 }
 
+// HasDisplay reports whether a graphical session is reachable.
+func HasDisplay() bool {
+	return os.Getenv("DISPLAY") != "" || os.Getenv("WAYLAND_DISPLAY") != ""
+}
+
+// ErrNoDisplay explains why Studio can't start.
+var ErrNoDisplay = errors.New("no graphical session: neither DISPLAY nor WAYLAND_DISPLAY is set")
+
 // IsAuthURI reports whether arg is a sign-in callback for a running Studio.
 func IsAuthURI(arg string) bool {
 	return strings.HasPrefix(strings.ToLower(arg), "roblox-studio-auth:")
@@ -198,6 +207,7 @@ func (a *App) Launch(args []string, verbose bool) error {
 		w = io.MultiWriter(f, os.Stderr)
 	}
 	rw := &logx.RedactWriter{W: w}
+	defer rw.Flush()
 	fmt.Fprintf(rw, "\n=== %s brine run %s\n", time.Now().Format(time.RFC3339), strings.Join(args, " "))
 	cmd.Stdout = rw
 	cmd.Stderr = rw
@@ -211,6 +221,9 @@ func (a *App) Launch(args []string, verbose bool) error {
 // LaunchDetached starts Studio in the background in its own session so it
 // outlives the caller (used by `brine mcp` autostart).
 func (a *App) LaunchDetached() error {
+	if !HasDisplay() {
+		return ErrNoDisplay
+	}
 	self, err := os.Executable()
 	if err != nil {
 		return err
