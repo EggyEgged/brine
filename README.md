@@ -191,6 +191,9 @@ Start with `brine doctor`. It prints a fix for every failed check.
   server" is on: close Studio, then `brine mcp enable`, then `brine run`.
   Studio retries every few seconds, so allow up to ~5 s.
 * **`execute_luau` says "Place is not open".** Open a place. Studio's tools work on an open place.
+* **`execute_luau` ran but I don't see `print` output in the reply.** That is how Studio's tool
+  behaves: output goes to Studio's Output window. Ask the client to call `get_console_output`.
+* **`datamodel_type is required`.** Studio's tools need `datamodel_type` (`Edit`, `Client` or `Server`) as well as `studio_id`.
 * **Port 13469 belongs to something else.** `brine doctor` names the process. Another launcher's MCP
   helper (or a Windows VM forwarding the port) must be stopped.
 * **Sign-in window is blank.** Run `brine setup` to (re)install WebView2. Or set
@@ -211,11 +214,12 @@ Start with `brine doctor`. It prints a fix for every failed check.
 make build          # build/brine
 make test           # unit tests (stdout filter, config merge, bridge behaviour, ...)
 make integration    # scripts/integration-test.sh: real Studio + MCP round trip
+make restart-test   # scripts/restart-test.py: one MCP session survives `brine kill` + a Studio restart
 make dist           # release tarball in dist/
 make deb            # .deb in dist/
 ```
 
-The integration test needs a signed-in Studio with MCP enabled. It opens a
+Both live tests need a signed-in Studio with MCP enabled. It opens a
 temporary place, runs `print(...)` through `execute_luau`, and checks that the
 print reached Studio's Output.
 

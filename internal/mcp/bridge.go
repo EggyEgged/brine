@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -400,23 +401,39 @@ func (b *Bridge) startHelper() error {
 	if err != nil {
 		return err
 	}
-	stdout, err := cmd.StdoutPipe()
+	// The helper may start a wineserver, which daemonizes and keeps
+	// inheriting our pipes for as long as Studio uses it. Hand the child raw
+	// *os.File pipes so cmd.Wait() returns when the helper exits, rather than
+	// when every holder of the pipe has gone (as with StdoutPipe or a
+	// non-file Stderr, which make Wait block on EOF).
+	stdout, outW, err := os.Pipe()
 	if err != nil {
 		return err
 	}
-	if b.HelperLog != nil {
-		cmd.Stderr = b.HelperLog
+	stderr, errW, err := os.Pipe()
+	if err != nil {
+		stdout.Close()
+		outW.Close()
+		return err
 	}
+	cmd.Stdout, cmd.Stderr = outW, errW
 	if err := cmd.Start(); err != nil {
+		for _, f := range []*os.File{stdout, outW, stderr, errW} {
+			f.Close()
+		}
 		return fmt.Errorf("start helper: %w", err)
 	}
+	outW.Close()
+	errW.Close()
 	b.Log.Printf("started helper pid %d: %s", cmd.Process.Pid, strings.Join(cmd.Args, " "))
 	h := &helperProc{cmd: cmd, stdin: stdin, done: make(chan struct{})}
 	b.mu.Lock()
 	b.helper = h
 	b.mu.Unlock()
 
+	readers := make(chan struct{}, 2)
 	go func() {
+		defer func() { readers <- struct{}{} }()
 		r := bufio.NewReaderSize(stdout, 1<<20)
 		for {
 			line, err := r.ReadBytes('\n')
@@ -424,11 +441,31 @@ func (b *Bridge) startHelper() error {
 				b.fromHelper(line)
 			}
 			if err != nil {
-				break
+				return
 			}
 		}
+	}()
+	go func() {
+		defer func() { readers <- struct{}{} }()
+		var dst io.Writer = io.Discard
+		if b.HelperLog != nil {
+			dst = b.HelperLog
+		}
+		io.Copy(dst, stderr)
+	}()
+	go func() {
 		err := cmd.Wait()
 		close(h.done)
+		// Let the readers drain what the helper wrote before it exited, but
+		// don't wait for a wineserver that still holds the pipes.
+		for i := 0; i < 2; i++ {
+			select {
+			case <-readers:
+			case <-time.After(500 * time.Millisecond):
+			}
+		}
+		stdout.Close()
+		stderr.Close()
 		b.helperExited(h, err)
 	}()
 	return nil

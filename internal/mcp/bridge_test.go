@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -26,6 +27,13 @@ func TestMain(m *testing.M) {
 }
 
 func fakeHelper() {
+	if os.Getenv("BRINE_FAKE_DAEMON") == "1" {
+		// Like wineserver: a long-lived child that inherits our stdout/stderr.
+		d := exec.Command("sleep", "20")
+		d.Stdout, d.Stderr = os.Stdout, os.Stderr
+		d.SysProcAttr = &syscall.SysProcAttr{Setsid: true} // out of the helper's process group
+		d.Start()
+	}
 	fmt.Fprintln(os.Stderr, "kombucha: ntsync is unavailable")
 	fmt.Print("Microsoft Windows [Version 10.0.19045]\r\n")
 	fmt.Print("0024:fixme:ntdll:NtQuerySystemInformation info_class 0x99\n")
@@ -242,4 +250,23 @@ func TestBridgeRestartsHelperAndReplaysHandshake(t *testing.T) {
 		t.Fatalf("call after restart failed: %v", r)
 	}
 	h.close()
+}
+
+// A daemon started by the helper (wineserver) keeps the helper's pipes open
+// after the helper exits. The bridge must still exit when stdin closes.
+func TestBridgeExitsDespiteDaemonHoldingPipes(t *testing.T) {
+	t.Setenv("BRINE_FAKE_DAEMON", "1")
+	h := newHarness(t, true, nil)
+	h.send(initReq)
+	h.recv()
+	start := time.Now()
+	h.in.Close()
+	select {
+	case <-h.done:
+	case <-time.After(8 * time.Second):
+		t.Fatal("bridge hung while a daemon held the helper's pipes")
+	}
+	if d := time.Since(start); d > 6*time.Second {
+		t.Fatalf("shutdown took %s", d)
+	}
 }

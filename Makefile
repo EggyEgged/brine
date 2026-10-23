@@ -4,7 +4,7 @@ GOFLAGS ?= -trimpath
 LDFLAGS := -s -w -X main.Version=$(VERSION)
 DIST    := dist/brine-$(VERSION)-linux-amd64
 
-.PHONY: all build test vet install uninstall dist deb clean integration
+.PHONY: all build test vet install uninstall dist deb clean integration restart-test
 
 all: build
 
@@ -39,6 +39,9 @@ deb: build
 
 integration: build
 	scripts/integration-test.sh
+
+restart-test: build
+	BRINE=$(CURDIR)/build/brine python3 -I scripts/restart-test.py
 
 clean:
 	rm -rf build dist

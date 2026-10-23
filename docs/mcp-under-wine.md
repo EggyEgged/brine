@@ -197,3 +197,22 @@ to `-all`.
 * On stdin EOF: close the helper's stdin, wait up to 3 s, then SIGTERM and
   SIGKILL its process group. The wineserver is never killed from `brine mcp`,
   because Studio may still be using it.
+
+## 7. Verified end to end
+
+Run on the same machine, with Studio 0.744.0.7441077:
+
+* `claude -p` (a real Claude Code session) listed two connected Studios, chose the one with a
+  place open, ran `execute_luau`, and `print` appeared in Studio's log as `[FLog::CreatorOutput]`.
+  The tool result carries the return value only; print output is read with `get_console_output`.
+* One `brine mcp` session survived `brine kill` and a Studio relaunch: the helper was restarted,
+  the client got `notifications/tools/list_changed`, and calls worked again without a new `initialize`.
+  (`scripts/restart-test.py`.)
+* **Pitfall found by that test:** the helper starts a wineserver when none is running, and that
+  wineserver keeps inheriting the helper's stdout/stderr for as long as Studio uses it. Waiting
+  for EOF on those pipes (Go's `StdoutPipe`) therefore hangs `brine mcp` after stdin closes.
+  Brine hands the helper plain pipe files and tracks the process exit separately.
+* With `[mcp] autostart_studio = true`, a tool call with Studio closed launched Studio and was
+  answered 6 s later.
+* `roblox-studio-auth:` links reach Studio's own handler (it parses the URI and validates `state`).
+  A real sign-in needs credentials and was not exercised.
