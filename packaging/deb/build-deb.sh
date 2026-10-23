@@ -32,8 +32,8 @@ Installed-Size: $size
 Depends: tar, xz-utils
 Recommends: xdg-utils, desktop-file-utils, shared-mime-info, libvulkan1
 Suggests: wine
-Maintainer: Brine contributors <brine@example.invalid>
-Homepage: https://example.invalid/brine
+Maintainer: Brine contributors <186115781+EggyEgged@users.noreply.github.com>
+Homepage: https://github.com/EggyEgged/brine
 Description: Unsandboxed Roblox Studio launcher for Wine with MCP bridge
  Installs, updates and runs Roblox Studio under Wine without Flatpak,
  and connects Studio's built-in MCP server to Linux MCP clients such as

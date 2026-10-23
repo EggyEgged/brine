@@ -24,3 +24,5 @@ First release.
   instead of hanging; install/update/rollback are serialised with a lock; credentials, cookies and auth
   codes are redacted from logs; logs rotate at 5 MiB.
 - Packaging: release tarball with a user-level installer, AUR `PKGBUILD`, `.deb`.
+
+[0.1.0]: https://github.com/EggyEgged/brine/releases/tag/v0.1.0

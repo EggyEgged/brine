@@ -30,24 +30,63 @@ Brine is an independent project and is not affiliated with Roblox Corporation.
 
 ## Install
 
-From a release tarball, as your normal user:
+Brine installs for your own user and never needs root (the only `sudo` below is your package manager
+installing a `.deb`). Pick one way:
+
+### 1. Release tarball (any distribution)
+
+Download `brine-0.1.0-linux-amd64.tar.gz` and its `.sha256` file from the
+[Releases page](https://github.com/EggyEgged/brine/releases/latest), then:
 
 ```sh
-tar xf brine-*-linux-amd64.tar.gz
-cd brine-*-linux-amd64
-./install.sh            # installs ~/.local/bin/brine, the man page, shell completions and the desktop entry
+sha256sum -c brine-0.1.0-linux-amd64.tar.gz.sha256   # should print: OK
+tar xf brine-0.1.0-linux-amd64.tar.gz
+cd brine-0.1.0-linux-amd64
+./install.sh
 ```
 
-Verify the download first with `sha256sum -c brine-*.tar.gz.sha256`.
+`install.sh` puts `brine` in `~/.local/bin`, the man page and shell completions in your home directory, and
+the desktop entry, icon and URI handlers under `~/.local/share`. If `~/.local/bin` is not in your `PATH`, add it
+to your shell profile. Set `PREFIX=/some/dir` to install somewhere else.
 
-From source (Go 1.23+):
+### 2. From source (Go 1.23 or newer)
 
 ```sh
-make install            # same as above, from build/brine
+git clone https://github.com/EggyEgged/brine.git
+cd brine
+make install            # builds build/brine and installs it like install.sh does
 ```
 
-Distribution packages: `packaging/aur/PKGBUILD` (Arch) and `make deb` (Debian/Ubuntu). Both install the man
-page (`man brine`) and bash/zsh/fish completions (also available as `brine completion bash|zsh|fish`).
+### 3. Debian, Ubuntu and derivatives
+
+Download `brine_0.1.0_amd64.deb` from the [Releases page](https://github.com/EggyEgged/brine/releases/latest):
+
+```sh
+sudo apt install ./brine_0.1.0_amd64.deb
+```
+
+### 4. Arch Linux
+
+Build the package from the PKGBUILD in this repository:
+
+```sh
+git clone https://github.com/EggyEgged/brine.git
+cd brine/packaging/aur
+makepkg -si
+```
+
+### After installing
+
+```sh
+brine setup                          # Wine, prefix, Studio, WebView2, desktop entries (first run takes a few minutes)
+brine run                            # start Studio and sign in
+brine mcp connect claude-code        # and/or: brine mcp connect claude-desktop
+brine doctor                         # checks everything, including an MCP round trip
+```
+
+See [First run](#first-run) and [Connect an MCP client](#connect-an-mcp-client) below for the details.
+To remove Brine, run `brine uninstall` (add `--purge` to also delete the Wine prefix, which holds your Studio
+sign-in), then remove the program itself with your package manager or `rm ~/.local/bin/brine`.
 
 ## First run
 

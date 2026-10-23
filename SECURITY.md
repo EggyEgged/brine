@@ -6,9 +6,13 @@ Only the latest release receives fixes.
 
 ## Reporting a vulnerability
 
-Please report security problems privately to the maintainers (see the project page for the contact
-address) instead of opening a public issue. Include the Brine version (`brine version`), what you did and
-what you saw. We aim to acknowledge reports within a week.
+Please report security problems privately instead of opening a public issue: on the
+[repository](https://github.com/EggyEgged/brine), open the **Security** tab and choose **Report a vulnerability**
+(a private GitHub security advisory). If that option is not available, open a public issue that says only
+that you have a security report and asks for a private way to send it, without any details.
+
+Include the Brine version (`brine version`), what you did and what you saw. We aim to acknowledge reports
+within a week.
 
 ## What Brine does with your data
 
