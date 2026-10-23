@@ -1,0 +1,19 @@
+[Desktop Entry]
+Type=Application
+Name=Brine
+GenericName=Studio Launcher
+Comment=Run Roblox Studio under Wine, with MCP support
+Exec=brine run %u
+TryExec=brine
+Icon=brine
+Terminal=false
+StartupNotify=true
+StartupWMClass=robloxstudiobeta.exe
+Categories=Development;Game;
+Keywords=studio;wine;mcp;
+MimeType=x-scheme-handler/roblox-studio;x-scheme-handler/roblox-studio-auth;application/x-roblox-place;application/x-roblox-place+xml;
+Actions=kill;
+
+[Desktop Action kill]
+Name=Stop Studio
+Exec=brine kill

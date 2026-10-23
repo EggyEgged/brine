@@ -1,0 +1,39 @@
+# Maintainer: Brine contributors
+pkgname=brine
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Unsandboxed Roblox Studio launcher for Wine with built-in MCP bridge'
+arch=('x86_64')
+url='https://example.invalid/brine'   # set to the project's real home before publishing
+license=('MIT')
+depends=('tar' 'xz')
+makedepends=('go')
+optdepends=(
+  'wine: system Wine runtime (otherwise Brine downloads its own build)'
+  'vulkan-icd-loader: DXVK/Vulkan renderers'
+  'xdg-utils: registering URI and file handlers'
+  'desktop-file-utils: refreshing the desktop entry cache'
+)
+source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  cd "$pkgname-$pkgver"
+  export CGO_ENABLED=0 GOFLAGS='-trimpath -mod=readonly -modcacherw'
+  go build -ldflags "-s -w -X main.Version=$pkgver" -o build/brine ./cmd/brine
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  go test ./...
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  install -Dm755 build/brine "$pkgdir/usr/bin/brine"
+  install -Dm644 assets/brine.desktop "$pkgdir/usr/share/applications/brine.desktop"
+  install -Dm644 assets/brine.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/brine.svg"
+  install -Dm644 assets/brine-studio.xml "$pkgdir/usr/share/mime/packages/brine-studio.xml"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}
