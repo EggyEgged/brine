@@ -11,7 +11,7 @@ one hosting the port exits, and that a late client can still join.
 import os, pathlib, shutil, subprocess, sys, tempfile, threading, time
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from mcpsession import BRINE, Session, fail, helper_pids, start_studio, step, wineserver_pids
+from mcpsession import BRINE, Session, fail, helper_pids, preflight, start_studio, step, wineserver_pids
 
 HERE = pathlib.Path(__file__).resolve().parent
 work = pathlib.Path(tempfile.mkdtemp(prefix="brine-multi-"))
@@ -40,6 +40,7 @@ def retry_luau(s, sid, marker, timeout=45):
     fail(f"{s.name}: never recovered, last reply {last!r}")
 
 
+preflight()
 try:
     step("fresh state")
     subprocess.run([BRINE, "kill"], check=False, capture_output=True)

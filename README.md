@@ -113,6 +113,38 @@ Then:
 brine run               # start Studio and sign in
 ```
 
+## Opening links and files
+
+Brine registers itself as the handler for the links and files that normally open Studio, so the buttons on
+roblox.com and create.roblox.com work from your browser, and double-clicking a place file in your file manager
+opens it in Studio:
+
+| What you click | Example |
+|---|---|
+| "Edit in Studio" and similar buttons | `roblox-studio:1+launchmode:edit+task:EditPlace+placeId:1818` |
+| Browser sign-in callback | `roblox-studio-auth:/?code=…` |
+| Place files | `.rbxl`, `.rbxlx` (also as `file://` links) |
+
+You can also hand Brine an ordinary address on the command line, which it turns into an "Edit in Studio" link:
+
+```sh
+brine run https://www.roblox.com/games/1818/Crossroads
+brine run https://create.roblox.com/dashboard/creations/experiences/13058/overview
+brine run ~/Documents/MyGame.rbxl
+```
+
+Notes:
+
+* Each experience opens in its own Studio window, as on Windows. A link or file launched from a browser or file
+  manager returns to the caller immediately; Studio keeps running in the background.
+* Links come from web pages, so Brine only accepts plain Roblox links and refuses anything with spaces, quotes or
+  other characters that could smuggle extra arguments into Studio. Rejected links show a desktop notification.
+* Browsers ask once whether to open links with Brine. Choose Brine and tick "always allow".
+* On some desktops `xdg-open place.rbxlx` picks a text editor, because its fallback looks at the file's content
+  rather than the registered file type. File managers and `gio open place.rbxlx` pick Brine; so does `brine run`.
+* `brine doctor` checks that the registered handler really points at your `brine`. If you move or reinstall
+  Brine elsewhere, run `brine desktop install` again.
+
 ## Connect an MCP client
 
 1. Turn on Studio's MCP server. In Studio: **Assistant → … → Manage MCP Servers →
@@ -293,6 +325,7 @@ Start with `brine doctor`. It prints a fix for every failed check.
 make build          # build/brine
 make test           # unit tests (stdout filter, config merge, bridge behaviour, ...)
 make integration    # scripts/integration-test.sh: real Studio + MCP round trip
+make link-test      # scripts/link-test.sh: links and files reach Studio, hostile links are refused
 make restart-test   # scripts/restart-test.py: one MCP session survives `brine kill` + a Studio restart
 make multi-test     # scripts/multi-client-test.py: several MCP clients at once, one exits, one joins late
 make check          # gofmt + go vet + go test -race (what CI runs)

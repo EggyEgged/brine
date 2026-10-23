@@ -14,6 +14,16 @@
 set -eu
 
 here=$(cd "$(dirname "$0")/.." && pwd)
+# Don't run over a real session: these tests run `brine kill`.
+if [ "${BRINE_TEST_FORCE:-0}" != 1 ]; then
+    if pgrep -a -x brine | grep -qE ' mcp( |$)'; then
+        echo "Refusing to run: another MCP client is connected (brine mcp). Close it, or set BRINE_TEST_FORCE=1." >&2; exit 2
+    fi
+    if ps -eo args | grep -E '[R]obloxStudioBeta\.exe' | grep -vq msedge; then
+        echo "Refusing to run: Studio is already running. Close it, or set BRINE_TEST_FORCE=1." >&2; exit 2
+    fi
+fi
+
 BRINE=${BRINE:-}
 if [ -z "$BRINE" ]; then
     if [ -x "$here/build/brine" ]; then BRINE=$here/build/brine; else BRINE=$(command -v brine); fi

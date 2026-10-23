@@ -3,11 +3,14 @@ package main
 import (
 	"errors"
 	"flag"
+	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 
 	"brine/internal/app"
+	"brine/internal/link"
 	"brine/internal/lock"
 	"brine/internal/logx"
 	"brine/internal/studio"
@@ -28,21 +31,29 @@ func cmdRun(args []string) error {
 		return app.ErrNoDisplay
 	}
 	target := strings.Join(fs.Args(), " ")
-	studioArgs, err := app.StudioArgs(target)
+	res, err := link.Resolve(target, link.NetLookup)
 	if err != nil {
 		return err
+	}
+	studioArgs := res.Args
+	// A browser, file manager or xdg-open starts us with no terminal and may
+	// wait for us to exit; Studio runs for hours. Hand the work to a
+	// background copy so the caller gets control back at once. Problems the
+	// copy hits are reported as desktop notifications, as for any menu launch.
+	if res.Kind != link.None && os.Getenv(detachedEnv) == "" && !isTerminal(os.Stdin) && !isTerminal(os.Stderr) {
+		return detach(res.Canonical, *verbose)
 	}
 	logx.Setup("brine.log", *verbose)
 	logx.Printf("run %s", target)
 
 	// Sign-in callbacks must reach the running Studio quickly; skip updates.
-	if !app.IsAuthURI(target) && !a.StudioRunning() && a.Cfg.Studio.AutoUpdate && !a.State.Pinned {
+	if res.Kind != link.Auth && !a.StudioRunning() && a.Cfg.Studio.AutoUpdate && !a.State.Pinned {
 		autoUpdate(a)
 	}
 	if _, err := a.BuildDir(); err != nil {
 		return err
 	}
-	if !app.IsAuthURI(target) {
+	if res.Kind != link.Auth {
 		if err := a.PrepareBuild(); err != nil {
 			return err
 		}
@@ -106,4 +117,29 @@ func autoUpdate(a *app.App) {
 	if err := studio.Install(a.State, rel, a.Cfg.Studio.KeepVersions, func(f string, x ...any) { say(f, x...) }); err != nil {
 		say("Update failed, starting the installed build: %v", err)
 	}
+}
+
+// detachedEnv marks the background copy started by detach.
+const detachedEnv = "BRINE_DETACHED"
+
+// detach re-runs `brine run target` in its own session with no terminal and
+// returns as soon as it has started.
+func detach(target string, verbose bool) error {
+	self, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	args := []string{"run"}
+	if verbose {
+		args = append(args, "-v")
+	}
+	cmd := exec.Command(self, append(args, target)...)
+	cmd.Env = append(os.Environ(), detachedEnv+"=1")
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	logx.Setup("brine.log", false)
+	logx.Printf("handed %q to background process %d", logx.Redact(target), cmd.Process.Pid)
+	return cmd.Process.Release()
 }

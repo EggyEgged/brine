@@ -5,7 +5,7 @@ LDFLAGS := -s -w -X main.Version=$(VERSION)
 NAME    := brine-$(VERSION)-linux-amd64
 DIST    := dist/$(NAME)
 
-.PHONY: all build test vet fmt check install uninstall completions dist deb clean integration restart-test multi-test
+.PHONY: all build test vet fmt check install uninstall completions dist deb clean integration restart-test multi-test link-test
 
 all: build
 
@@ -66,3 +66,6 @@ multi-test: build
 
 clean:
 	rm -rf build dist
+
+link-test: build
+	BRINE=$(CURDIR)/build/brine sh scripts/link-test.sh

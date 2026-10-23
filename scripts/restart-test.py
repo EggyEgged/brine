@@ -10,7 +10,7 @@ its wineserver, relaunches Studio and checks that the same session works again.
 import os, pathlib, shutil, subprocess, sys, tempfile, time
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from mcpsession import BRINE, Session, fail, helper_pids, start_studio, step, studio_pids, wineserver_pids
+from mcpsession import BRINE, Session, fail, helper_pids, preflight, start_studio, step, studio_pids, wineserver_pids
 
 HERE = pathlib.Path(__file__).resolve().parent
 work = pathlib.Path(tempfile.mkdtemp(prefix="brine-restart-"))
@@ -18,6 +18,7 @@ place = work / "Restart.rbxlx"
 shutil.copy(HERE / "fixtures" / "Integration.rbxlx", place)
 
 
+preflight()
 try:
     step("fresh state: stopping any Studio")
     subprocess.run([BRINE, "kill"], check=False)

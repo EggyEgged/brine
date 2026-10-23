@@ -194,8 +194,13 @@ func Run(a *app.App, rtErr error, w io.Writer, skipRoundTrip bool) (fails int) {
 		if len(wrong) > 0 {
 			report(Result{"desktop entry", Warn, "other handlers: " + strings.Join(wrong, ", "),
 				"Run `brine desktop install` so browser sign-in and \"Edit in Studio\" links reach Brine."})
+		} else if exe, err := desktop.ExecPath(); err != nil {
+			report(Result{"desktop entry", Warn, "cannot read the handler command: " + err.Error(), "Run `brine desktop install`."})
+		} else if st, err := os.Stat(exe); err != nil || st.IsDir() || st.Mode()&0o111 == 0 {
+			report(Result{"desktop entry", Fail, "links are sent to " + exe + ", which does not exist or is not executable",
+				"Run `brine desktop install` from the brine you want to keep, so roblox-studio: links reach it."})
 		} else {
-			report(Result{"desktop entry", OK, desktop.DesktopPath(), ""})
+			report(Result{"desktop entry", OK, "roblox-studio: links, sign-in callbacks and place files go to " + exe, ""})
 		}
 	}
 

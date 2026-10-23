@@ -52,11 +52,58 @@ def studio_pids():
     return _procs("RobloxStudioBeta.exe")
 
 
+def _ppid(pid):
+    try:
+        return int(pathlib.Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[1])
+    except (OSError, ValueError, IndexError):
+        return 0
+
+
+def bridge_pids():
+    """Running `brine mcp` processes of this user (any client's)."""
+    res = []
+    for d in os.listdir("/proc"):
+        if not d.isdigit():
+            continue
+        try:
+            if os.stat(f"/proc/{d}").st_uid != os.getuid():
+                continue
+            cmd = pathlib.Path(f"/proc/{d}/cmdline").read_bytes().split(b"\0")
+        except OSError:
+            continue
+        if len(cmd) >= 2 and cmd[0].rsplit(b"/", 1)[-1] == b"brine" and cmd[1] == b"mcp":
+            res.append(int(d))
+    return res
+
+
 def helper_pids():
-    return _procs("StudioMCP.exe")
+    """StudioMCP.exe processes that no `brine mcp` owns. A helper that a live
+    bridge (another client's) restarted is not a leak."""
+    owners = set(bridge_pids())
+    return [p for p in _procs("StudioMCP.exe") if _ppid(p) not in owners]
+
+
+def preflight():
+    """Refuse to run a live test over someone's real session: the tests run
+    `brine kill`, which would stop their Studio and restart their MCP helper."""
+    if os.environ.get("BRINE_TEST_FORCE") == "1":
+        return
+    busy = []
+    if bridge_pids():
+        busy.append(f"another MCP client is connected (brine mcp pid {bridge_pids()})")
+    if studio_pids():
+        busy.append(f"Studio is already running (pid {studio_pids()})")
+    if busy:
+        print("Refusing to run: " + "; ".join(busy) + ".\nClose them first, or set BRINE_TEST_FORCE=1 to run anyway "
+              "(the test will stop that Studio and disturb that session).", file=sys.stderr)
+        sys.exit(2)
 
 
 def wineserver_pids():
+    """Wineservers of Brine's prefix, unless another client's live bridge is
+    around (its helper legitimately restarts one after `brine kill`)."""
+    if bridge_pids():
+        return []
     return _procs("wineserver") + _procs("wineserver64")
 
 

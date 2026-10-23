@@ -35,7 +35,7 @@ next explicit
 or
 .BR update .
 .TP
-.B run \fR[\fIFILE\fR|\fIURI\fR] [\fB\-v\fR]
+.B run \fR[\fIFILE\fR|\fIURI\fR|\fIADDRESS\fR] [\fB\-v\fR]
 Start Studio. A
 .I .rbxl
 or
@@ -45,6 +45,10 @@ file is opened as a place;
 and
 .I roblox-studio-auth:
 URIs are passed to Studio (this is how browser sign-in completes).
+A roblox.com/games/<id> or create.roblox.com/dashboard/creations/experiences/<id> address is turned into an
+"Edit in Studio" link. Only plain Roblox links are accepted; anything that could add arguments to Studio's
+command line is refused. When started without a terminal (by a browser or file manager) with a link or file,
+brine returns immediately and Studio runs in the background.
 .B \-v
 copies Wine's output to the terminal.
 .TP

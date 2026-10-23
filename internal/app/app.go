@@ -125,33 +125,6 @@ func (a *App) PrepareBuild() error {
 	return nil
 }
 
-// StudioArgs converts `brine run` arguments into Studio's command line.
-func StudioArgs(arg string) ([]string, error) {
-	if arg == "" {
-		return nil, nil
-	}
-	lower := strings.ToLower(arg)
-	if strings.HasPrefix(lower, "roblox-studio:") || strings.HasPrefix(lower, "roblox-studio-auth:") {
-		return []string{arg}, nil
-	}
-	if strings.HasPrefix(lower, "file://") {
-		arg = strings.TrimPrefix(arg, "file://")
-		arg = strings.ReplaceAll(arg, "%20", " ")
-	}
-	st, err := os.Stat(arg)
-	if err != nil {
-		return nil, fmt.Errorf("cannot open %s: %w", arg, err)
-	}
-	if st.IsDir() {
-		return nil, fmt.Errorf("%s is a directory", arg)
-	}
-	switch strings.ToLower(filepath.Ext(arg)) {
-	case ".rbxl", ".rbxlx":
-		return []string{"-task", "EditFile", "-localPlaceFile", wine.WinPath(arg)}, nil
-	}
-	return nil, fmt.Errorf("%s: Studio opens .rbxl and .rbxlx places", arg)
-}
-
 // HasDisplay reports whether a graphical session is reachable.
 func HasDisplay() bool {
 	return os.Getenv("DISPLAY") != "" || os.Getenv("WAYLAND_DISPLAY") != ""

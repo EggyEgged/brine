@@ -5,6 +5,7 @@ package desktop
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -186,4 +187,47 @@ func nonNil(errs []error) []error {
 		}
 	}
 	return out
+}
+
+// ExecPath returns the program the installed desktop entry launches, which
+// is what a browser runs when you click a roblox-studio: link.
+func ExecPath() (string, error) {
+	b, err := os.ReadFile(DesktopPath())
+	if err != nil {
+		return "", err
+	}
+	return parseExec(string(b))
+}
+
+func parseExec(entry string) (string, error) {
+	for _, line := range strings.Split(entry, "\n") {
+		v, ok := strings.CutPrefix(line, "Exec=")
+		if !ok {
+			continue
+		}
+		// Two escape layers apply: first the file's own value escapes
+		// (\\ is one backslash), then the argument quoting below.
+		v = strings.NewReplacer(`\\`, `\`, `\s`, " ").Replace(strings.TrimSpace(v))
+		if strings.HasPrefix(v, `"`) {
+			// Quoted: runs to the closing quote; \\ \" \$ \` are escapes.
+			var out []rune
+			esc := false
+			for _, r := range v[1:] {
+				switch {
+				case esc:
+					out = append(out, r)
+					esc = false
+				case r == '\\':
+					esc = true
+				case r == '"':
+					return string(out), nil
+				default:
+					out = append(out, r)
+				}
+			}
+			return "", errors.New("unterminated quote in Exec=")
+		}
+		return strings.Fields(v)[0], nil
+	}
+	return "", errors.New("no Exec= line")
 }

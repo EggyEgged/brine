@@ -4,6 +4,23 @@ All notable changes to Brine are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- `brine run` accepts `roblox.com/games/<id>` and `create.roblox.com/dashboard/creations/experiences/<id>`
+  addresses and opens them as "Edit in Studio" links.
+- `brine doctor` verifies the registered link handler points at a real binary.
+- `scripts/link-test.sh` (`make link-test`): live test of links, files and hostile input.
+
+### Changed
+- Links and files launched from a browser, file manager or `xdg-open` now hand off to a background process
+  and return immediately instead of blocking until Studio exits.
+- `file://` links are decoded properly (spaces, `#`, `%`, unicode, `localhost`); links to other hosts are refused.
+
+### Security
+- `roblox-studio:` and `roblox-studio-auth:` links are validated: whitespace, quotes, backslashes and control
+  characters are refused, so a crafted link cannot add arguments to Studio's Wine command line.
+
 ## [0.1.0] - 2026-10-23
 
 First release.
@@ -25,4 +42,5 @@ First release.
   codes are redacted from logs; logs rotate at 5 MiB.
 - Packaging: release tarball with a user-level installer, AUR `PKGBUILD`, `.deb`.
 
+[Unreleased]: https://github.com/EggyEgged/brine/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/EggyEgged/brine/releases/tag/v0.1.0

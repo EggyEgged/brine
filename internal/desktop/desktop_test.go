@@ -25,3 +25,20 @@ func TestEntry(t *testing.T) {
 		t.Error("program name must not contain Roblox")
 	}
 }
+
+func TestParseExec(t *testing.T) {
+	for entry, want := range map[string]string{
+		entry("/usr/bin/brine"):                "/usr/bin/brine",
+		entry("/home/a b/.local/brine"):        "/home/a b/.local/brine",
+		entry(`/home/u/"x"/brine`):             `/home/u/"x"/brine`,
+		"[Desktop Entry]\nExec=brine run %u\n": "brine",
+	} {
+		got, err := parseExec(entry)
+		if err != nil || got != want {
+			t.Errorf("parseExec = %q, %v; want %q", got, err, want)
+		}
+	}
+	if _, err := parseExec("[Desktop Entry]\nName=x\n"); err == nil {
+		t.Error("accepted an entry without Exec=")
+	}
+}
