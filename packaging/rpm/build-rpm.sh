@@ -47,14 +47,16 @@ else
     [ -n "$engine" ] || { echo "build-rpm: need rpmbuild+go, or docker/podman" >&2; exit 1; }
     image=${FEDORA_IMAGE:-fedora:latest}
     mkdir -p "$out"
-    "$engine" run --rm -v "$root:/src:ro" -v "$work:/work" -v "$out:/dist" -w /src "$image" sh -ec '
+    # The container runs as root; whatever happens (even a failed build), hand
+    # the files back to the invoking user so the next run can clean them up.
+    "$engine" run --rm -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+        -v "$root:/src:ro" -v "$work:/work" -v "$out:/dist" -w /src "$image" sh -ec '
+        trap "chown -R $HOST_UID:$HOST_GID /work /dist" EXIT
         dnf install -y -q rpm-build golang desktop-file-utils tar xz gzip >/dev/null
         # /src is read-only: build from a copy so the spec path is stable.
         cp -r /src/packaging /tmp/pkg
         sed "s|^spec=.*|spec=/tmp/pkg/rpm/brine.spec|; s|^root=.*|root=/src|; s|^out=.*|out=/dist|" /src/packaging/rpm/build-rpm.sh > /tmp/build-rpm.sh
         sh /tmp/build-rpm.sh --inside /work
     '
-    # Files written by a root container: hand them back to the invoking user.
-    "$engine" run --rm -v "$out:/dist" -v "$work:/work" "$image" chown -R "$(id -u):$(id -g)" /dist /work
 fi
 ls -1 "$out"/brine-"$version"-*.rpm

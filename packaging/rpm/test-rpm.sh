@@ -13,7 +13,7 @@ for image in $images; do
     echo "--> $image: install, run, remove $(basename "$rpm")"
     "$engine" run --rm -v "$rpm:/pkg/brine.rpm:ro" "$image" sh -ec '
         cat /etc/fedora-release
-        dnf install -y -q /pkg/brine.rpm >/dev/null
+        dnf install -y -q --setopt=tsflags= /pkg/brine.rpm >/dev/null   # container images set tsflags=nodocs, which would skip the man page
         rpm -q brine
         rpm -V brine                                    # files match the package
         test -x /usr/bin/brine
@@ -27,6 +27,7 @@ for image in $images; do
         # touches Wine or files must refuse root.
         brine version
         brine doctor --quick 2>&1 | grep -q "refusing to run as root" || { echo "doctor ran as root"; exit 1; }
+        dnf install -y -q util-linux >/dev/null   # test-only: provides runuser
         useradd -m tester
         runuser -u tester -- sh -ec "
             brine version
