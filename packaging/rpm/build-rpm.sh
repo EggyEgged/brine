@@ -4,8 +4,8 @@
 #   packaging/rpm/build-rpm.sh              package the current HEAD
 #   REF=v0.1.1 packaging/rpm/build-rpm.sh   package a tag or commit
 #
-# Uses rpmbuild and Go from the host when present; otherwise builds inside a
-# Fedora container (docker or podman), which also works on any other distro and in CI.
+# Uses the host's rpmbuild and Go on a Fedora/RHEL machine; anywhere else it builds inside a
+# Fedora container (docker or podman), which works on any distro and in CI.
 # The source package carries the vendored Go modules, so it builds offline (COPR, mock).
 set -eu
 
@@ -40,7 +40,11 @@ mkdir -p "$work/SOURCES" "$work/BUILD" "$work/RPMS" "$work/SRPMS" "$work/SPECS"
 git -C "$root" archive --format=tar.gz --prefix="brine-$version/" -o "$work/SOURCES/brine-$version.tar.gz" "${REF:-HEAD}"
 [ -z "$(git -C "$root" status --porcelain)" ] || echo "build-rpm: note: uncommitted changes are not included (packaging ${REF:-HEAD})" >&2
 
-if command -v rpmbuild >/dev/null 2>&1 && command -v go >/dev/null 2>&1; then
+# Build on the host only if it is an RPM system that actually has the BuildRequires
+# (a Fedora/RHEL machine). Debian-style hosts that merely have rpmbuild installed
+# (CI runners) don't, so they use the Fedora container.
+if command -v rpmbuild >/dev/null 2>&1 && command -v go >/dev/null 2>&1 \
+   && rpm -q --quiet golang desktop-file-utils 2>/dev/null; then
     "$0" --inside "$work"
 else
     engine=$(command -v docker || command -v podman || true)
