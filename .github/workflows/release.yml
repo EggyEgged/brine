@@ -16,13 +16,21 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: Version numbers agree
+        run: scripts/check-versions.sh "${GITHUB_REF_NAME#v}"
       - run: make check
       - name: Build tarball and .deb
         run: make dist deb VERSION=${GITHUB_REF_NAME#v}
+      - name: Build the Fedora RPM and source RPM
+        run: REF="$GITHUB_REF_NAME" VERSION=${GITHUB_REF_NAME#v} packaging/rpm/build-rpm.sh
+      - name: Install-test the RPM on Fedora
+        run: packaging/rpm/test-rpm.sh
+      - name: Checksums
+        run: cd dist && sha256sum brine-*.tar.gz brine_*.deb brine-*.rpm > SHA256SUMS && cat SHA256SUMS
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" --title "Brine ${GITHUB_REF_NAME#v}" \
             --notes-file <(awk "/^## \\[${GITHUB_REF_NAME#v}\\]/{f=1;next} /^## \\[/{f=0} f" CHANGELOG.md) \
-            dist/*.tar.gz dist/*.sha256 dist/*.deb
+            dist/*.tar.gz dist/*.tar.gz.sha256 dist/*.deb dist/*.rpm dist/SHA256SUMS

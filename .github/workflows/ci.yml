@@ -27,3 +27,18 @@ jobs:
         with:
           name: dist
           path: dist/
+
+  rpm:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version numbers agree
+        run: scripts/check-versions.sh "$(sed -n 's/^Version:[[:space:]]*//p' packaging/rpm/brine.spec)"
+      - name: Build the RPM and source RPM in Fedora
+        run: packaging/rpm/build-rpm.sh
+      - name: Install-test the RPM on Fedora 43 and latest
+        run: packaging/rpm/test-rpm.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rpm
+          path: dist/*.rpm

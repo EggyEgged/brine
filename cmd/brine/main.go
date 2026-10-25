@@ -81,16 +81,28 @@ func init() {
 	}
 }
 
-func main() {
-	if os.Geteuid() == 0 {
-		fmt.Fprintln(os.Stderr, "brine: refusing to run as root; run it as your normal user")
-		os.Exit(1)
+// rootSafe lists the commands that only print text and touch nothing, so
+// package builds (which often run as root in a container) can use them.
+// Everything else refuses to run as root: Brine works on your files, your
+// Wine prefix and your desktop, and never on the system's.
+func rootSafe(cmd string) bool {
+	switch cmd {
+	case "version", "--version", "-V", "help", "-h", "--help", "completion":
+		return true
 	}
+	return false
+}
+
+func main() {
 	if len(os.Args) < 2 {
 		fmt.Print(usage)
 		return
 	}
 	cmd, args := os.Args[1], os.Args[2:]
+	if os.Geteuid() == 0 && !rootSafe(cmd) {
+		fmt.Fprintln(os.Stderr, "brine: refusing to run as root; run it as your normal user")
+		os.Exit(1)
+	}
 	switch cmd {
 	case "version", "--version", "-V":
 		fmt.Println("brine", Version)

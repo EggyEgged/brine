@@ -67,3 +67,17 @@ func TestUserExtraPaths(t *testing.T) {
 		t.Errorf("no home but returned %v", p)
 	}
 }
+
+func TestRootSafe(t *testing.T) {
+	for _, c := range []string{"version", "--version", "-V", "help", "--help", "-h", "completion"} {
+		if !rootSafe(c) {
+			t.Errorf("%s should be allowed as root (it only prints text)", c)
+		}
+	}
+	// Anything that touches Wine, files or the desktop must refuse root.
+	for _, c := range []string{"setup", "run", "kill", "mcp", "doctor", "install", "update", "rollback", "uninstall", "desktop", "config", "wine", "winecfg", "regedit", "runtime", "", "roblox-studio:1+x"} {
+		if rootSafe(c) {
+			t.Errorf("%q must refuse to run as root", c)
+		}
+	}
+}

@@ -6,7 +6,11 @@ All notable changes to Brine are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-25
+
 ### Added
+- Fedora package: `brine-0.1.1-1.x86_64.rpm` and a source RPM (`packaging/rpm/brine.spec`), built and
+  install-tested in clean Fedora containers by CI and attached to every release, with a `SHA256SUMS` file.
 - `brine run` accepts `roblox.com/games/<id>` and `create.roblox.com/dashboard/creations/experiences/<id>`
   addresses and opens them as "Edit in Studio" links.
 - `brine doctor` verifies the registered link handler points at a real binary.
@@ -42,5 +46,6 @@ First release.
   codes are redacted from logs; logs rotate at 5 MiB.
 - Packaging: release tarball with a user-level installer, AUR `PKGBUILD`, `.deb`.
 
-[Unreleased]: https://github.com/EggyEgged/brine/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/EggyEgged/brine/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/EggyEgged/brine/releases/tag/v0.1.1
 [0.1.0]: https://github.com/EggyEgged/brine/releases/tag/v0.1.0

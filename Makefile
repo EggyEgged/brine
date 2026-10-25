@@ -5,7 +5,7 @@ LDFLAGS := -s -w -X main.Version=$(VERSION)
 NAME    := brine-$(VERSION)-linux-amd64
 DIST    := dist/$(NAME)
 
-.PHONY: all build test vet fmt check install uninstall completions dist deb clean integration restart-test multi-test link-test
+.PHONY: all build test vet fmt check install uninstall completions dist deb rpm rpm-test check-versions clean integration restart-test multi-test link-test
 
 all: build
 
@@ -63,6 +63,18 @@ restart-test: build
 
 multi-test: build
 	BRINE=$(CURDIR)/build/brine python3 -I scripts/multi-client-test.py
+
+# Fedora/RHEL package: builds the .rpm and .src.rpm into dist/ (in a Fedora container if rpmbuild isn't installed).
+rpm:
+	packaging/rpm/build-rpm.sh
+
+# Install the .rpm in clean Fedora containers and check it.
+rpm-test:
+	packaging/rpm/test-rpm.sh
+
+# Fail if the spec, PKGBUILD and changelog disagree about the version.
+check-versions:
+	scripts/check-versions.sh $(or $(RELEASE),$(shell sed -n 's/^Version:[[:space:]]*//p' packaging/rpm/brine.spec))
 
 clean:
 	rm -rf build dist

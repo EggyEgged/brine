@@ -1,6 +1,6 @@
 # Maintainer: Brine contributors
 pkgname=brine
-pkgver=0.1.0
+pkgver=0.1.1
 pkgrel=1
 pkgdesc='Unsandboxed Roblox Studio launcher for Wine with built-in MCP bridge'
 arch=('x86_64')

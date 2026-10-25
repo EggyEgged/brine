@@ -35,13 +35,13 @@ installing a `.deb`). Pick one way:
 
 ### 1. Release tarball (any distribution)
 
-Download `brine-0.1.0-linux-amd64.tar.gz` and its `.sha256` file from the
+Download `brine-0.1.1-linux-amd64.tar.gz` and its `.sha256` file from the
 [Releases page](https://github.com/EggyEgged/brine/releases/latest), then:
 
 ```sh
-sha256sum -c brine-0.1.0-linux-amd64.tar.gz.sha256   # should print: OK
-tar xf brine-0.1.0-linux-amd64.tar.gz
-cd brine-0.1.0-linux-amd64
+sha256sum -c brine-0.1.1-linux-amd64.tar.gz.sha256   # should print: OK
+tar xf brine-0.1.1-linux-amd64.tar.gz
+cd brine-0.1.1-linux-amd64
 ./install.sh
 ```
 
@@ -59,13 +59,26 @@ make install            # builds build/brine and installs it like install.sh doe
 
 ### 3. Debian, Ubuntu and derivatives
 
-Download `brine_0.1.0_amd64.deb` from the [Releases page](https://github.com/EggyEgged/brine/releases/latest):
+Download `brine_0.1.1_amd64.deb` from the [Releases page](https://github.com/EggyEgged/brine/releases/latest):
 
 ```sh
-sudo apt install ./brine_0.1.0_amd64.deb
+sudo apt install ./brine_0.1.1_amd64.deb
 ```
 
-### 4. Arch Linux
+### 4. Fedora
+
+Download `brine-0.1.1-1.x86_64.rpm` from the [Releases page](https://github.com/EggyEgged/brine/releases/latest):
+
+```sh
+sudo dnf install ./brine-0.1.1-1.x86_64.rpm
+```
+
+The package is a static build, so it isn't tied to one Fedora release (tested on Fedora 43 and 44). Wine is optional:
+`brine setup` can download its own build, or install Fedora's with `sudo dnf install wine`. The release also has
+`brine-0.1.1-1.src.rpm` for rebuilding (for example in COPR or `mock`), and a `SHA256SUMS` file covering every
+download. RPM-based distributions other than Fedora should work the same but are untested.
+
+### 5. Arch Linux
 
 Build the package from the PKGBUILD in this repository:
 
