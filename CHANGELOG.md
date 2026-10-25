@@ -17,6 +17,8 @@ All notable changes to Brine are recorded here. The format follows
 - `scripts/link-test.sh` (`make link-test`): live test of links, files and hostile input.
 
 ### Changed
+- `brine version`, `help` and `completion` now work as root, so package builds in root containers can use
+  them; every other command still refuses to run as root.
 - Links and files launched from a browser, file manager or `xdg-open` now hand off to a background process
   and return immediately instead of blocking until Studio exits.
 - `file://` links are decoded properly (spaces, `#`, `%`, unicode, `localhost`); links to other hosts are refused.

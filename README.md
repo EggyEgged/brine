@@ -73,7 +73,9 @@ Download `brine-0.1.1-1.x86_64.rpm` from the [Releases page](https://github.com/
 sudo dnf install ./brine-0.1.1-1.x86_64.rpm
 ```
 
-The package is a static build, so it isn't tied to one Fedora release (tested on Fedora 43 and 44). Wine is optional:
+The package is a static build, so it isn't tied to one Fedora release. CI installs it on Fedora 43 and 44, and
+`brine setup` (Wine, prefix, Studio, WebView2, DXVK) was verified on a clean Fedora 44 install. Starting Studio
+itself on Fedora has not been tested yet, so please report anything odd. Wine is optional:
 `brine setup` can download its own build, or install Fedora's with `sudo dnf install wine`. The release also has
 `brine-0.1.1-1.src.rpm` for rebuilding (for example in COPR or `mock`), and a `SHA256SUMS` file covering every
 download. RPM-based distributions other than Fedora should work the same but are untested.
